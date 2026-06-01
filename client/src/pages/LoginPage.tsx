@@ -99,11 +99,11 @@ export function LoginPage() {
         <div className="hidden bg-ink p-10 lg:flex lg:flex-col lg:justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-fg p-1.5">
-              <img src="/favicon.svg" alt="Juggle Sports" className="h-full w-full" draggable={false} />
+              <img src="/alhadian-travels-logo.svg" alt="Alhadian Travels" className="h-full w-full" draggable={false} />
             </div>
             <div className="leading-tight">
               <div className="text-sm font-semibold tracking-tight text-accent-fg">
-                Juggle Sports
+                Alhadian Travels
               </div>
               <div className="text-[11px] uppercase tracking-wider text-accent-fg/70">
                 Invoicing
@@ -126,7 +126,7 @@ export function LoginPage() {
               ))}
             </div>
           </div>
-          <div className="text-xs text-accent-fg/50">© {new Date().getFullYear()} Juggle Sports</div>
+          <div className="text-xs text-accent-fg/50">© {new Date().getFullYear()} Alhadian Travels</div>
         </div>
 
         <div className="flex items-center justify-center px-6 py-12">

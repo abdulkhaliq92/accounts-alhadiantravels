@@ -65,7 +65,7 @@ export function InvoiceDetailsPage() {
       console.error(err)
     }
     const subject = `${invoice.type ?? 'Invoice'} #${invoice.invoiceNumber} from ${
-      profile?.businessName ?? profile?.name ?? 'Juggle Sports'
+      profile?.businessName ?? profile?.name ?? 'Alhadian Travels'
     }`
     const body = [
       `Hi ${invoice.client?.name ?? ''},`,
@@ -75,7 +75,7 @@ export function InvoiceDetailsPage() {
       invoice.dueDate ? `Due: ${format(new Date(invoice.dueDate), 'MMM d, yyyy')}` : '',
       '',
       'Thank you,',
-      profile?.businessName ?? profile?.name ?? 'Juggle Sports',
+      profile?.businessName ?? profile?.name ?? 'Alhadian Travels',
     ]
       .filter(Boolean)
       .join('\n')

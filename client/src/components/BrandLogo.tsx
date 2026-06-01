@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 
-export const BRAND_LOGO_SRC = '/juggle-sports-logo.svg'
-export const BRAND_NAME = 'Juggle Sports'
+export const BRAND_LOGO_SRC = '/alhadian-travels-logo.svg'
+export const BRAND_NAME = 'Alhadian Travels'
 
 interface Props {
   className?: string

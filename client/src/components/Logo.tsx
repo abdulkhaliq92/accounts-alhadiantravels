@@ -10,8 +10,8 @@ export function Logo({ className, showText = true, size = 32 }: Props) {
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
       <img
-        src="/favicon.svg"
-        alt="Juggle Sports"
+        src="/alhadian-travels-logo.svg"
+        alt="Alhadian Travels"
         width={size}
         height={size}
         className="select-none"
@@ -19,7 +19,7 @@ export function Logo({ className, showText = true, size = 32 }: Props) {
       />
       {showText && (
         <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-tight text-ink">Juggle Sports</div>
+          <div className="text-sm font-semibold tracking-tight text-ink">Alhadian Travels</div>
           <div className="text-[11px] uppercase tracking-wider text-muted">Invoicing</div>
         </div>
       )}
