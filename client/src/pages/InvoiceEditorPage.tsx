@@ -212,8 +212,17 @@ export function InvoiceEditorPage() {
       <form onSubmit={submit} className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <div className="card p-6">
-            <div className="mb-5 border-b border-border pb-5">
-              <BrandLogo fullWidth />
+            <div className="mb-5 flex items-center gap-4 border-b border-border pb-5">
+              <BrandLogo height={80} />
+              <div>
+                <div className="text-lg font-bold tracking-tight text-ink">Alhadian Travels Pvt Ltd</div>
+                {profile && (
+                  <div className="text-xs text-muted mt-0.5">
+                    {profile.email && <div>{profile.email}</div>}
+                    {profile.phoneNumber && <div>{profile.phoneNumber}</div>}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">

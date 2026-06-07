@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -24,6 +24,7 @@ export function InvoiceDetailsPage() {
   const { data: profile } = useProfile()
   const [open, setOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const invoiceCardRef = useRef<HTMLDivElement>(null)
 
   const totalReceived = useMemo(
     () =>
@@ -43,7 +44,7 @@ export function InvoiceDetailsPage() {
   const downloadPdf = async () => {
     try {
       setDownloading(true)
-      await downloadInvoicePdf({ invoice, profile, totalReceived })
+      await downloadInvoicePdf({ invoice, profile, totalReceived, element: invoiceCardRef.current })
       toast.success('PDF downloaded')
     } catch (err) {
       console.error(err)
@@ -129,10 +130,23 @@ export function InvoiceDetailsPage() {
       )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="card overflow-hidden xl:col-span-2">
+        <div className="card overflow-hidden xl:col-span-2" ref={invoiceCardRef}>
           <header className="border-b border-border bg-bg/40 p-6">
-            <div className="mb-6">
-              <BrandLogo fullWidth />
+            <div className="mb-6 flex items-center gap-4">
+              <BrandLogo height={80} />
+              <div>
+                <div className="text-lg font-bold tracking-tight text-ink">Alhadian Travels Pvt Ltd</div>
+                {profile && (
+                  <div className="text-xs text-muted mt-0.5">
+                    {splitMulti(profile.email).map((e) => (
+                      <div key={`ph-${e}`}>{e}</div>
+                    ))}
+                    {splitMulti(profile.phoneNumber).map((p) => (
+                      <div key={`phh-${p}`}>{p}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-start justify-between gap-6">
               {profile && (

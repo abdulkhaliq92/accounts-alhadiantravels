@@ -27,7 +27,16 @@ dotenv.config()
 
 app.use((express.json({ limit: "30mb", extended: true})))
 app.use((express.urlencoded({ limit: "30mb", extended: true})))
-app.use((cors()))
+app.use(cors({
+    origin: [
+        'https://client-alhadian-travels-projects.vercel.app',
+        'http://localhost:3000',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+}))
+app.options('*', cors())
 
 app.use('/invoices', invoiceRoutes)
 app.use('/clients', clientRoutes)
@@ -112,6 +121,7 @@ app.get('/fetch-pdf', (req, res) => {
 app.get('/', (req, res) => {
     res.send('SERVER IS RUNNING')
   })
+
 
 const DB_URL = process.env.DB_URL
 const PORT = process.env.PORT || 5000

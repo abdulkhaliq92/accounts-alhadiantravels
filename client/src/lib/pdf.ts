@@ -86,298 +86,213 @@ interface BuildOpts {
   invoice: Invoice
   profile?: Profile | null
   totalReceived: number
+  element?: HTMLElement | null
 }
 
 export async function generateInvoicePdf({ invoice, profile, totalReceived }: BuildOpts) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true })
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const pageHeight = doc.internal.pageSize.getHeight()
-  const margin = 40
-  const contentWidth = pageWidth - margin * 2
-  const rightX = pageWidth - margin
-  let y = margin
+  const pageWidth   = doc.internal.pageSize.getWidth()
+  const pageHeight  = doc.internal.pageSize.getHeight()
+  const M           = 40               // margin
+  const W           = pageWidth - M * 2 // content width
+  const RX          = pageWidth - M    // right edge
+  let y             = M
 
-  const balance = Math.max(0, Number(invoice.total) - totalReceived)
-  const statusText = deriveStatus({
-    total: invoice.total,
-    totalAmountReceived: totalReceived,
-    paymentRecords: invoice.paymentRecords,
-    type: invoice.type,
-  })
-  const isPaid = statusText === 'Paid'
-  const issuedDate = invoice.createdAt
-    ? format(new Date(invoice.createdAt), 'MMM d, yyyy')
-    : '—'
-  const dueDate = invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM d, yyyy') : '—'
+  const balance     = Math.max(0, Number(invoice.total) - totalReceived)
+  const statusText  = deriveStatus({ total: invoice.total, totalAmountReceived: totalReceived, paymentRecords: invoice.paymentRecords, type: invoice.type })
+  const isPaid      = statusText === 'Paid'
+  const issuedDate  = invoice.createdAt ? format(new Date(invoice.createdAt), 'MMM d, yyyy') : '—'
+  const dueDate     = invoice.dueDate   ? format(new Date(invoice.dueDate),   'MMM d, yyyy') : '—'
+  const cur         = invoice.currency ?? ''
 
-  // ===== Logo (100% width) =====
-  const logo = await loadLogo()
+  // ── HEADER: logo (left) + company name | invoice # + status (right) ──
+  const logo    = await loadLogo()
+  const logoH   = 64
+  const logoW   = logo ? logoH / (logo.h / logo.w) : 0
+
   if (logo) {
-    const aspect = logo.h / logo.w
-    const logoHeight = contentWidth * aspect
-    doc.addImage(
-      logo.dataUrl,
-      logo.format,
-      margin,
-      y,
-      contentWidth,
-      logoHeight,
-      undefined,
-      'FAST',
-    )
-    y += logoHeight + 16
-  } else {
-    doc.setFont('helvetica', 'bold').setFontSize(20).setTextColor(INK)
-    doc.text(BRAND_NAME, margin, y + 20)
-    y += 36
+    doc.addImage(logo.dataUrl, logo.format, M, y, logoW, logoH, undefined, 'FAST')
   }
 
-  drawDivider(doc, margin, y, rightX)
+  // Company name + contact beside the logo
+  const nameX = M + logoW + 12
+  doc.setFont('helvetica', 'bold').setFontSize(14).setTextColor(INK)
+  doc.text('Alhadian Travels Pvt Ltd', nameX, y + 20)
+  doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(MUTED)
+  let nameInfoY = y + 32
+  for (const e of splitMulti(profile?.email))       { doc.text(e, nameX, nameInfoY); nameInfoY += 10 }
+  for (const p of splitMulti(profile?.phoneNumber)) { doc.text(p, nameX, nameInfoY); nameInfoY += 10 }
+
+  // Invoice type + number + badge — right side, same row as logo
+  const docType = String(invoice.type ?? 'Invoice').toUpperCase()
+  doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(MUTED)
+  doc.text(docType, RX, y + 14, { align: 'right' })
+  doc.setFont('helvetica', 'bold').setFontSize(28).setTextColor(INK)
+  doc.text(`#${invoice.invoiceNumber ?? '—'}`, RX, y + 42, { align: 'right' })
+  drawStatusPill(doc, RX, y + 48, statusText)
+
+  y += Math.max(logoH, nameInfoY - y) + 14
+  drawDivider(doc, M, y, RX)
   y += 16
 
-  // ===== Title strip: type + number left, dates right =====
-  const docType = String(invoice.type ?? 'Invoice').toUpperCase()
-  doc.setFont('helvetica', 'bold').setFontSize(16).setTextColor(INK)
-  doc.text(docType, margin, y + 2)
-  doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(MUTED)
-  doc.text(`No. #${invoice.invoiceNumber ?? '—'}`, margin, y + 14)
+  // ── SECTION: FROM (left) | BILL TO (right) ───────────────────────
+  const gap      = 32
+  const colW     = (W - gap) / 2
+  const fromX    = M
+  const billX    = M + colW + gap
 
-  // Right side: ISSUED / DUE in a tight 2-col block above the status pill
-  const metaCol1X = rightX - 100
-  const metaCol2X = rightX
-  doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
-  doc.text('ISSUED', metaCol1X, y - 2)
-  doc.text('DUE', metaCol1X, y + 11)
-  doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(INK)
-  doc.text(issuedDate, metaCol2X, y - 2, { align: 'right' })
-  doc.text(dueDate, metaCol2X, y + 11, { align: 'right' })
-
-  // Status pill below the dates, right-aligned
-  drawStatusPill(doc, rightX, y + 18, statusText)
-
-  y += 40
-  drawDivider(doc, margin, y, rightX)
-  y += 14
-
-  // ===== FROM + BILL TO (two columns, equal width) =====
-  const colGap = 36
-  const colWidth = (contentWidth - colGap) / 2
-  const fromX = margin
-  const billX = margin + colWidth + colGap
+  const writeLine = (text: string, x: number, cy: number, maxW: number): number => {
+    const lines = doc.splitTextToSize(text, maxW)
+    doc.text(lines, x, cy)
+    return cy + lines.length * 11
+  }
 
   doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
   doc.text('FROM', fromX, y)
   doc.text('BILL TO', billX, y)
-  y += 12
+  y += 11
 
-  doc.setFontSize(11).setFont('helvetica', 'bold').setTextColor(INK)
-  const fromName = profile?.businessName || profile?.name || BRAND_NAME
-  const fromNameLines = doc.splitTextToSize(fromName, colWidth)
-  doc.text(fromNameLines, fromX, y)
-  const billNameLines = doc.splitTextToSize(invoice.client?.name ?? '—', colWidth)
-  doc.text(billNameLines, billX, y)
+  // FROM name
+  doc.setFontSize(10).setFont('helvetica', 'bold').setTextColor(INK)
+  const fromName  = profile?.businessName || profile?.name || BRAND_NAME
+  const fromLines = doc.splitTextToSize(fromName, colW)
+  doc.text(fromLines, fromX, y)
+  // BILL TO name
+  const billLines = doc.splitTextToSize(invoice.client?.name ?? '—', colW)
+  doc.text(billLines, billX, y)
 
-  let fromY = y + Math.max(fromNameLines.length, 1) * 13 + 2
-  let billY = y + Math.max(billNameLines.length, 1) * 13 + 2
+  let fromY = y + Math.max(fromLines.length, 1) * 12 + 2
+  let billY = y + Math.max(billLines.length, 1) * 12 + 2
 
-  doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(MUTED)
-
-  const writeColLine = (text: string, x: number, currentY: number): number => {
-    const wrapped = doc.splitTextToSize(text, colWidth)
-    doc.text(wrapped, x, currentY)
-    return currentY + wrapped.length * 11
-  }
-
-  // FROM contact
-  for (const email of splitMulti(profile?.email)) {
-    fromY = writeColLine(email, fromX, fromY)
-  }
-  for (const phone of splitMulti(profile?.phoneNumber)) {
-    fromY = writeColLine(phone, fromX, fromY)
-  }
-  if (profile?.contactAddress) fromY = writeColLine(profile.contactAddress, fromX, fromY)
-
-  // BILL TO contact
-  for (const email of splitMulti(invoice.client?.email)) {
-    billY = writeColLine(email, billX, billY)
-  }
-  for (const phone of splitMulti(invoice.client?.phone)) {
-    billY = writeColLine(phone, billX, billY)
-  }
-  if (invoice.client?.address) billY = writeColLine(invoice.client.address, billX, billY)
-
-  y = Math.max(fromY, billY) + 16
-
-  // ===== Balance Due banner =====
-  const bannerHeight = 40
-  ensureSpace(doc, y, bannerHeight + 100, () => {
-    y = margin
-  })
-  doc.setFillColor(248, 250, 252) // slate-50
-  doc.roundedRect(margin, y, contentWidth, bannerHeight, 5, 5, 'F')
-
-  doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
-  doc.text(isPaid ? 'PAID IN FULL' : 'BALANCE DUE', margin + 14, y + 16)
   doc.setFontSize(8.5).setFont('helvetica', 'normal').setTextColor(MUTED)
-  doc.text(
-    isPaid ? 'Thank you for your payment.' : `Due by ${dueDate}`,
-    margin + 14,
-    y + 28,
-  )
+  for (const e of splitMulti(profile?.email))         fromY = writeLine(e, fromX, fromY, colW)
+  for (const p of splitMulti(profile?.phoneNumber))   fromY = writeLine(p, fromX, fromY, colW)
+  if (profile?.contactAddress)                        fromY = writeLine(profile.contactAddress, fromX, fromY, colW)
 
-  doc.setFontSize(13).setFont('helvetica', 'bold').setTextColor(INK)
-  doc.text(
-    `${invoice.currency ?? ''} ${toCommas(isPaid ? invoice.total : balance)}`,
-    rightX - 14,
-    y + 25,
-    { align: 'right' },
-  )
+  for (const e of splitMulti(invoice.client?.email))  billY = writeLine(e, billX, billY, colW)
+  for (const p of splitMulti(invoice.client?.phone))  billY = writeLine(p, billX, billY, colW)
+  if (invoice.client?.address)                        billY = writeLine(invoice.client.address, billX, billY, colW)
 
-  y += bannerHeight + 14
+  y = Math.max(fromY, billY) + 14
 
-  // ===== Items table =====
-  ensureSpace(doc, y, 120, () => {
-    y = margin
+  // ── SECTION: Invoice meta grid (Issued | Due | Currency | Total) ──
+  drawDivider(doc, M, y, RX)
+  y += 14
+
+  const metaW   = W / 4
+  const metas   = [
+    { label: 'ISSUED',   value: issuedDate },
+    { label: 'DUE',      value: dueDate },
+    { label: 'CURRENCY', value: cur || '—' },
+    { label: 'TOTAL',    value: `${cur} ${toCommas(invoice.total)}` },
+  ]
+  metas.forEach((m, i) => {
+    const mx = M + i * metaW
+    doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
+    doc.text(m.label, mx, y)
+    doc.setFontSize(9.5).setFont('helvetica', 'bold').setTextColor(INK)
+    doc.text(m.value, mx, y + 13)
   })
+  y += 32
+
+  // ── ITEMS TABLE ───────────────────────────────────────────────────
+  drawDivider(doc, M, y, RX)
+  y += 4
+  ensureSpace(doc, y, 80, () => { y = M })
 
   const items = invoice.items ?? []
-  const body = items.map((it) => [
-    it.itemName || '—',
-    it.quantity || '0',
-    toCommas(it.unitPrice),
-    it.discount || '0',
-    toCommas(lineAmount(it)),
-  ])
-
   autoTable(doc, {
     startY: y,
-    head: [
-      [
-        { content: 'DESCRIPTION', styles: { halign: 'left' } },
-        { content: 'QTY', styles: { halign: 'right' } },
-        { content: 'PRICE', styles: { halign: 'right' } },
-        { content: 'DISC %', styles: { halign: 'right' } },
-        { content: 'AMOUNT', styles: { halign: 'right' } },
-      ],
-    ],
-    body,
+    head: [[
+      { content: 'ITEM',   styles: { halign: 'left' } },
+      { content: 'QTY',    styles: { halign: 'right' } },
+      { content: 'PRICE',  styles: { halign: 'right' } },
+      { content: 'DISC %', styles: { halign: 'right' } },
+      { content: 'AMOUNT', styles: { halign: 'right' } },
+    ]],
+    body: items.map(it => [
+      it.itemName || '—',
+      it.quantity  || '0',
+      toCommas(it.unitPrice),
+      it.discount  || '0',
+      toCommas(lineAmount(it)),
+    ]),
     theme: 'plain',
     styles: {
-      font: 'helvetica',
-      fontSize: 9.5,
-      cellPadding: { top: 6, bottom: 6, left: 10, right: 10 },
-      textColor: INK,
-      lineColor: BORDER,
-      lineWidth: { bottom: 0.5 },
-      valign: 'middle',
+      font: 'helvetica', fontSize: 9.5,
+      cellPadding: { top: 7, bottom: 7, left: 10, right: 10 },
+      textColor: INK, lineColor: BORDER, lineWidth: { bottom: 0.5 }, valign: 'middle',
     },
     headStyles: {
-      fontSize: 7.5,
-      fontStyle: 'bold',
-      fillColor: [248, 250, 252],
-      textColor: MUTED,
-      lineColor: BORDER,
-      lineWidth: { bottom: 0.75 },
+      fontSize: 7.5, fontStyle: 'bold',
+      fillColor: [248, 250, 252], textColor: MUTED,
+      lineColor: BORDER, lineWidth: { bottom: 0.75 },
       cellPadding: { top: 7, bottom: 7, left: 10, right: 10 },
     },
     columnStyles: {
       0: { cellWidth: 'auto', halign: 'left' },
-      1: { cellWidth: 50, halign: 'right' },
-      2: { cellWidth: 65, halign: 'right' },
-      3: { cellWidth: 55, halign: 'right' },
-      4: { cellWidth: 80, halign: 'right' },
+      1: { cellWidth: 50,  halign: 'right' },
+      2: { cellWidth: 65,  halign: 'right' },
+      3: { cellWidth: 55,  halign: 'right' },
+      4: { cellWidth: 80,  halign: 'right' },
     },
-    margin: { left: margin, right: margin },
+    margin: { left: M, right: M },
   })
 
   // @ts-expect-error -- autotable adds lastAutoTable
   y = (doc.lastAutoTable?.finalY ?? y) + 10
 
-  // ===== Summary (right-aligned, no dividers) =====
-  // Hierarchy comes from bold weight + a small gap before each emphasized
-  // row (Total, Balance). The items table's bottom border already separates
-  // items from the summary, so no extra lines are needed here.
-  const ratesNum = Number(invoice.rates) || 0
-  type SummaryRow = {
-    label: string
-    value: string
-    bold?: boolean
-    gapAbove?: number
-  }
-  const summary: SummaryRow[] = [
-    { label: 'Subtotal', value: `${invoice.currency ?? ''} ${toCommas(invoice.subTotal)}` },
-    { label: `VAT (${ratesNum}%)`, value: `${invoice.currency ?? ''} ${toCommas(invoice.vat)}` },
-    {
-      label: 'Total',
-      value: `${invoice.currency ?? ''} ${toCommas(invoice.total)}`,
-      bold: true,
-      gapAbove: 6,
-    },
-    { label: 'Paid', value: `${invoice.currency ?? ''} ${toCommas(totalReceived)}` },
-    {
-      label: 'Balance due',
-      value: `${invoice.currency ?? ''} ${toCommas(balance)}`,
-      bold: true,
-      gapAbove: 6,
-    },
-  ]
-
-  ensureSpace(doc, y, 20 + summary.length * 16 + 50, () => {
-    y = margin
-  })
-
-  // Compact two-column block hugging the right margin. Labels and values are
-  // both right-aligned so the entire summary reads as a single tight cluster
-  // (no big empty gap between label and value).
-  y += 6
-  const valueColumnWidth = 95 // enough for "USD 9,999,999.99"
-  const labelRightX = rightX - valueColumnWidth
-  for (const row of summary) {
-    if (row.gapAbove) y += row.gapAbove
-    doc.setFontSize(row.bold ? 10.5 : 9.5)
-    doc.setFont('helvetica', row.bold ? 'bold' : 'normal')
-    doc.setTextColor(row.bold ? INK : MUTED)
-    doc.text(row.label, labelRightX, y, { align: 'right' })
-    doc.setFont('helvetica', 'bold').setTextColor(INK)
-    doc.text(row.value, rightX, y, { align: 'right' })
-    y += row.bold ? 16 : 14
-  }
-
-  y += 8
-
-  // ===== Notes =====
+  // ── NOTES ─────────────────────────────────────────────────────────
   if (invoice.notes) {
-    ensureSpace(doc, y, 40, () => {
-      y = margin
-    })
+    ensureSpace(doc, y, 40, () => { y = M })
     doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
-    doc.text('NOTES', margin, y)
+    doc.text('NOTES / PAYMENT INFO', M, y)
     y += 11
     doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(INK)
-    const wrapped = doc.splitTextToSize(invoice.notes, contentWidth)
-    doc.text(wrapped, margin, y)
-    y += wrapped.length * 12 + 10
+    const noteLines = doc.splitTextToSize(invoice.notes, W)
+    doc.text(noteLines, M, y)
+    y += noteLines.length * 12 + 10
   }
 
-  // ===== Payment history =====
-  if (invoice.paymentRecords && invoice.paymentRecords.length > 0) {
-    ensureSpace(doc, y, 70, () => {
-      y = margin
-    })
-    doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
-    doc.text(`PAYMENT HISTORY (${invoice.paymentRecords.length})`, margin, y)
-    y += 6
+  // ── SUMMARY ───────────────────────────────────────────────────────
+  const ratesNum = Number(invoice.rates) || 0
+  type SRow = { label: string; value: string; bold?: boolean; gap?: number }
+  const summaryRows: SRow[] = [
+    { label: 'Subtotal',            value: `${cur} ${toCommas(invoice.subTotal)}` },
+    { label: `VAT (${ratesNum}%)`,  value: `${cur} ${toCommas(invoice.vat)}` },
+    { label: 'Total',               value: `${cur} ${toCommas(invoice.total)}`,     bold: true, gap: 6 },
+    { label: 'Paid',                value: `${cur} ${toCommas(totalReceived)}` },
+    { label: 'Balance due',         value: `${cur} ${toCommas(balance)}`,           bold: true, gap: 6 },
+  ]
+  ensureSpace(doc, y, summaryRows.length * 16 + 30, () => { y = M })
+  y += 6
+  const valColW   = 110
+  const lblRX     = RX - valColW
+  for (const row of summaryRows) {
+    if (row.gap) y += row.gap
+    doc.setFontSize(row.bold ? 10 : 9)
+    doc.setFont('helvetica', row.bold ? 'bold' : 'normal').setTextColor(row.bold ? INK : MUTED)
+    doc.text(row.label, lblRX, y, { align: 'right' })
+    doc.setFont('helvetica', 'bold').setTextColor(INK)
+    doc.text(row.value, RX, y, { align: 'right' })
+    y += row.bold ? 16 : 13
+  }
+  y += 10
 
+  // ── PAYMENT HISTORY ───────────────────────────────────────────────
+  if (invoice.paymentRecords?.length) {
+    ensureSpace(doc, y, 70, () => { y = M })
+    doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
+    doc.text(`PAYMENT HISTORY (${invoice.paymentRecords.length})`, M, y)
+    y += 6
     autoTable(doc, {
       startY: y,
-      head: [
-        [
-          { content: 'DATE PAID', styles: { halign: 'left' } },
-          { content: 'AMOUNT', styles: { halign: 'right' } },
-          { content: 'METHOD', styles: { halign: 'left' } },
-          { content: 'NOTE', styles: { halign: 'left' } },
-        ],
-      ],
+      head: [[
+        { content: 'DATE PAID', styles: { halign: 'left' } },
+        { content: 'AMOUNT',    styles: { halign: 'right' } },
+        { content: 'METHOD',    styles: { halign: 'left' } },
+        { content: 'NOTE',      styles: { halign: 'left' } },
+      ]],
       body: invoice.paymentRecords.map((p: PaymentRecord) => [
         p.datePaid ? format(new Date(p.datePaid), 'MMM d, yyyy') : '—',
         toCommas(p.amountPaid),
@@ -385,41 +300,23 @@ export async function generateInvoicePdf({ invoice, profile, totalReceived }: Bu
         p.note ?? '',
       ]),
       theme: 'plain',
-      styles: {
-        font: 'helvetica',
-        fontSize: 9,
-        cellPadding: { top: 5, bottom: 5, left: 10, right: 10 },
-        textColor: INK,
-        lineColor: BORDER,
-        lineWidth: { bottom: 0.5 },
-        valign: 'middle',
-      },
-      headStyles: {
-        fontSize: 7.5,
-        fontStyle: 'bold',
-        fillColor: [248, 250, 252],
-        textColor: MUTED,
-        lineColor: BORDER,
-        lineWidth: { bottom: 0.75 },
-        cellPadding: { top: 6, bottom: 6, left: 10, right: 10 },
-      },
-      columnStyles: {
-        1: { halign: 'right' },
-      },
-      margin: { left: margin, right: margin },
+      styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 5, bottom: 5, left: 10, right: 10 }, textColor: INK, lineColor: BORDER, lineWidth: { bottom: 0.5 }, valign: 'middle' },
+      headStyles: { fontSize: 7.5, fontStyle: 'bold', fillColor: [248, 250, 252], textColor: MUTED, lineColor: BORDER, lineWidth: { bottom: 0.75 }, cellPadding: { top: 6, bottom: 6, left: 10, right: 10 } },
+      columnStyles: { 1: { halign: 'right' } },
+      margin: { left: M, right: M },
     })
   }
 
-  // ===== Footer (every page) =====
+  // ── FOOTER (every page) ───────────────────────────────────────────
   const totalPages = doc.getNumberOfPages()
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p)
     doc.setDrawColor(BORDER).setLineWidth(0.5)
-    doc.line(margin, pageHeight - 26, rightX, pageHeight - 26)
+    doc.line(M, pageHeight - 26, RX, pageHeight - 26)
     doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(MUTED)
-    doc.text('Thank you for your business.', margin, pageHeight - 14)
+    doc.text('Thank you for your business.', M, pageHeight - 14)
     if (totalPages > 1) {
-      doc.text(`Page ${p} of ${totalPages}`, rightX, pageHeight - 14, { align: 'right' })
+      doc.text(`Page ${p} of ${totalPages}`, RX, pageHeight - 14, { align: 'right' })
     }
   }
 
