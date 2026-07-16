@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-import type { AuthSession, Client, Invoice, Profile } from './types'
+import type { AppUser, AuthSession, BankAccount, Client, Invoice, Profile } from './types'
 
 export const API_URL =
   import.meta.env.VITE_API_URL ?? 'https://accounts-jugglesports-api.vercel.app'
@@ -36,32 +36,24 @@ api.interceptors.response.use(
 /* ---------------- Auth ---------------- */
 export const signIn = (data: { email: string; password: string }) =>
   api.post<AuthSession>('/users/signin', data)
-export const signUp = (data: {
-  firstName: string
-  lastName: string
-  email: string
-  password: string
-  confirmPassword: string
-}) => api.post<AuthSession>('/users/signup', data)
 export const forgotPassword = (data: { email: string }) =>
   api.post<{ message: string }>('/users/forgot', data)
 export const resetPassword = (data: { password: string; token: string }) =>
   api.post<{ message: string }>('/users/reset', data)
 
 /* ---------------- Profile ---------------- */
-export const fetchProfileByUser = (userIdValue: string) =>
-  api.get<{ data: Profile | null }>(`/profiles?searchQuery=${encodeURIComponent(userIdValue)}`)
+export const fetchSharedProfile = () =>
+  api.get<{ data: Profile | null }>('/profiles/shared')
 export const fetchProfile = (id: string) => api.get<Profile>(`/profiles/${id}`)
 export const createProfile = (data: Partial<Profile>) =>
   api.post<Profile>('/profiles', data)
 export const updateProfile = (id: string, data: Partial<Profile>) =>
   api.patch<Profile>(`/profiles/${id}`, data)
+export const updateBankAccounts = (id: string, bankAccounts: BankAccount[]) =>
+  api.patch<Profile>(`/profiles/${id}/bank-accounts`, { bankAccounts })
 
 /* ---------------- Clients ---------------- */
-export const fetchClientsByUser = (userIdValue: string) =>
-  api.get<{ data: Client[] }>(
-    `/clients/user?searchQuery=${encodeURIComponent(userIdValue)}`,
-  )
+export const fetchClients = () => api.get<{ data: Client[] }>('/clients')
 export const createClient = (data: Partial<Client>) =>
   api.post<Client>('/clients', data)
 export const updateClient = (id: string, data: Partial<Client>) =>
@@ -70,19 +62,31 @@ export const deleteClient = (id: string) =>
   api.delete<{ message: string }>(`/clients/${id}`)
 
 /* ---------------- Invoices ---------------- */
-export const fetchInvoicesByUser = (userIdValue: string) =>
-  api.get<{ data: Invoice[] }>(
-    `/invoices?searchQuery=${encodeURIComponent(userIdValue)}`,
-  )
+export const fetchInvoices = () => api.get<{ data: Invoice[] }>('/invoices')
 export const fetchInvoice = (id: string) => api.get<Invoice>(`/invoices/${id}`)
-export const fetchInvoiceCount = (userIdValue: string) =>
-  api.get<number>(`/invoices/count?searchQuery=${encodeURIComponent(userIdValue)}`)
+export const fetchInvoiceCount = () => api.get<number>('/invoices/count')
 export const createInvoice = (data: Partial<Invoice>) =>
   api.post<Invoice>('/invoices', data)
 export const updateInvoice = (id: string, data: Partial<Invoice>) =>
   api.patch<Invoice>(`/invoices/${id}`, data)
 export const deleteInvoice = (id: string) =>
   api.delete<{ message: string }>(`/invoices/${id}`)
+
+/* ---------------- Admin: user management ---------------- */
+export const fetchUsers = () => api.get<{ data: AppUser[] }>('/admin/users')
+export const createUser = (data: {
+  name: string
+  email: string
+  password: string
+  role: 'admin' | 'staff'
+  permissions: AppUser['permissions']
+}) => api.post<AppUser>('/admin/users', data)
+export const updateUser = (id: string, data: Partial<Pick<AppUser, 'name' | 'role' | 'permissions' | 'active'>>) =>
+  api.patch<AppUser>(`/admin/users/${id}`, data)
+export const resetUserPassword = (id: string, password: string) =>
+  api.patch<{ message: string }>(`/admin/users/${id}/password`, { password })
+export const deleteUser = (id: string) =>
+  api.delete<{ message: string }>(`/admin/users/${id}`)
 
 /* ---------------- PDF ---------------- */
 export const createPdf = (payload: Record<string, unknown>) =>

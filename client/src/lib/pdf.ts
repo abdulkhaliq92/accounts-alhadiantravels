@@ -242,6 +242,32 @@ export async function generateInvoicePdf({ invoice, profile, totalReceived }: Bu
   // @ts-expect-error -- autotable adds lastAutoTable
   y = (doc.lastAutoTable?.finalY ?? y) + 10
 
+  // ── PAYMENT DETAILS (bank account) ─────────────────────────────────
+  if (invoice.bankAccount) {
+    const ba = invoice.bankAccount
+    const lines = [
+      ba.bankName,
+      ba.accountTitle ? `Account title: ${ba.accountTitle}` : null,
+      ba.accountNumber ? `Account #: ${ba.accountNumber}` : null,
+      ba.iban ? `IBAN: ${ba.iban}` : null,
+      ba.swiftCode ? `SWIFT: ${ba.swiftCode}` : null,
+      ba.branchAddress,
+    ].filter((l): l is string => Boolean(l))
+
+    ensureSpace(doc, y, 22 + lines.length * 11, () => { y = M })
+    doc.setFontSize(7.5).setFont('helvetica', 'bold').setTextColor(MUTED)
+    doc.text('PAYMENT DETAILS', M, y)
+    y += 11
+    doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(INK)
+    doc.text(ba.label, M, y)
+    y += 11
+    doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(INK)
+    for (const line of lines) {
+      y = writeLine(line, M, y, W)
+    }
+    y += 8
+  }
+
   // ── NOTES ─────────────────────────────────────────────────────────
   if (invoice.notes) {
     ensureSpace(doc, y, 40, () => { y = M })

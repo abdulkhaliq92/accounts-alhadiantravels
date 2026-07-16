@@ -29,6 +29,23 @@ export interface Client {
   createdAt?: string
 }
 
+export interface BankAccount {
+  _id?: ID
+  label: string
+  bankName?: string
+  accountTitle?: string
+  accountNumber?: string
+  iban?: string
+  swiftCode?: string
+  branchAddress?: string
+  currency?: string
+  isDefault?: boolean
+  notes?: string
+  // Set only on the snapshot stored on an invoice — points back at the
+  // Settings bank account it was copied from, so the editor can preselect it.
+  sourceAccountId?: string
+}
+
 export interface Profile {
   _id?: ID
   name?: string
@@ -40,6 +57,29 @@ export interface Profile {
   logo?: string
   website?: string
   userId?: string[]
+  bankAccounts?: BankAccount[]
+}
+
+export type Permission =
+  | 'invoicesView'
+  | 'invoicesCreate'
+  | 'invoicesEdit'
+  | 'invoicesDelete'
+  | 'customersManage'
+  | 'settingsManage'
+  | 'bankAccountsManage'
+
+export type UserPermissions = Record<Permission, boolean>
+
+export type UserRole = 'admin' | 'staff'
+
+export interface AppUser {
+  _id: ID
+  name: string
+  email: string
+  role: UserRole
+  permissions: UserPermissions
+  active: boolean
 }
 
 export interface Invoice {
@@ -58,6 +98,7 @@ export interface Invoice {
   creator: string[]
   totalAmountReceived?: number
   client?: { name: string; email: string; phone: string; address: string }
+  bankAccount?: BankAccount | null
   paymentRecords?: PaymentRecord[]
   createdAt?: string
   // Augmented client-side after fetchInvoice + fetchProfile
@@ -68,6 +109,9 @@ export interface AuthUser {
   _id?: string
   email: string
   name?: string
+  role?: UserRole
+  permissions?: UserPermissions
+  active?: boolean
 }
 
 export interface AuthSession {

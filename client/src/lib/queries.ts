@@ -1,16 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 
 import * as api from './api'
-import { getUserId, useAuth } from './auth'
+import { useAuth } from './auth'
 
 export function useInvoices() {
-  const session = useAuth((s) => s.session)
-  const id = getUserId(session)
+  const token = useAuth((s) => s.session?.token)
   return useQuery({
-    queryKey: ['invoices', id],
-    enabled: !!id,
+    queryKey: ['invoices'],
+    enabled: !!token,
     queryFn: async () => {
-      const res = await api.fetchInvoicesByUser(id!)
+      const res = await api.fetchInvoices()
       return res.data?.data ?? []
     },
   })
@@ -28,40 +27,50 @@ export function useInvoice(id: string | undefined) {
 }
 
 export function useClients() {
-  const session = useAuth((s) => s.session)
-  const id = getUserId(session)
+  const token = useAuth((s) => s.session?.token)
   return useQuery({
-    queryKey: ['clients', id],
-    enabled: !!id,
+    queryKey: ['clients'],
+    enabled: !!token,
     queryFn: async () => {
-      const res = await api.fetchClientsByUser(id!)
+      const res = await api.fetchClients()
       return res.data?.data ?? []
     },
   })
 }
 
 export function useProfile() {
-  const session = useAuth((s) => s.session)
-  const id = getUserId(session)
+  const token = useAuth((s) => s.session?.token)
   return useQuery({
-    queryKey: ['profile', id],
-    enabled: !!id,
+    queryKey: ['profile'],
+    enabled: !!token,
     queryFn: async () => {
-      const res = await api.fetchProfileByUser(id!)
+      const res = await api.fetchSharedProfile()
       return res.data?.data ?? null
     },
   })
 }
 
 export function useInvoiceCount() {
-  const session = useAuth((s) => s.session)
-  const id = getUserId(session)
+  const token = useAuth((s) => s.session?.token)
   return useQuery({
-    queryKey: ['invoice-count', id],
-    enabled: !!id,
+    queryKey: ['invoice-count'],
+    enabled: !!token,
     queryFn: async () => {
-      const res = await api.fetchInvoiceCount(id!)
+      const res = await api.fetchInvoiceCount()
       return Number(res.data) || 0
+    },
+  })
+}
+
+export function useUsers() {
+  const token = useAuth((s) => s.session?.token)
+  const isAdmin = useAuth((s) => s.session?.result?.role === 'admin')
+  return useQuery({
+    queryKey: ['users'],
+    enabled: !!token && !!isAdmin,
+    queryFn: async () => {
+      const res = await api.fetchUsers()
+      return res.data?.data ?? []
     },
   })
 }

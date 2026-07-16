@@ -6,28 +6,12 @@ import mongoose from 'mongoose'
 
 import InvoiceModel from '../models/InvoiceModel.js'
 
-export const getInvoicesByUser = async (req, res) => {
-    const {searchQuery} = req.query;
-
-    try {
-        const invoices = await InvoiceModel.find({ creator: searchQuery });
-
-        res.status(200).json({ data: invoices });
-    } catch (error) {    
-        res.status(404).json({ message: error.message });
-    }
-}
-
-
 export const getTotalCount = async (req, res) => {
-    const {searchQuery} = req.query;
-
     try {
-        // const invoices = await InvoiceModel.find({ creator: searchQuery });
-        const totalCount = await InvoiceModel.countDocuments({ creator: searchQuery });
+        const totalCount = await InvoiceModel.countDocuments({})
 
         res.status(200).json(totalCount);
-    } catch (error) {    
+    } catch (error) {
         res.status(404).json({ message: error.message });
     }
 }
@@ -36,15 +20,15 @@ export const getTotalCount = async (req, res) => {
 export const getInvoices = async (req, res) => {
 
     try {
-        const allInvoices = await InvoiceModel.find({}).sort({_id:-1}) 
+        const allInvoices = await InvoiceModel.find({}).sort({_id:-1})
 
-        res.status(200).json(allInvoices)
+        res.status(200).json({ data: allInvoices })
 
     } catch (error) {
         res.status(409).json(error.message)
-        
+
     }
-    
+
 }
 
 

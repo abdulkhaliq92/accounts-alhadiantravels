@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import type { AuthSession } from './types'
+import type { AuthSession, Permission } from './types'
 
 interface AuthState {
   session: AuthSession | null
@@ -36,4 +36,13 @@ export function getUserId(session: AuthSession | null): string | undefined {
   // Server returns result._id; legacy code also referenced googleId.
   // @ts-expect-error - legacy field
   return session.result?._id ?? session.result?.googleId
+}
+
+export function isAdmin(session: AuthSession | null): boolean {
+  return session?.result?.role === 'admin'
+}
+
+export function hasPermission(session: AuthSession | null, key: Permission): boolean {
+  if (isAdmin(session)) return true
+  return Boolean(session?.result?.permissions?.[key])
 }

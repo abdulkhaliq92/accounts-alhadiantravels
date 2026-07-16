@@ -8,25 +8,36 @@ import {
   Plus,
   LogOut,
   Menu,
+  UserCog,
   X,
 } from 'lucide-react'
 
 import { Logo } from './Logo'
-import { useAuth } from '@/lib/auth'
+import { hasPermission, isAdmin, useAuth } from '@/lib/auth'
+import type { AuthSession } from '@/lib/types'
 import { cn, initials } from '@/lib/utils'
 
-const nav = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/invoices', label: 'Invoices', icon: FileText },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/settings', label: 'Settings', icon: Settings },
-]
+function getNav(session: AuthSession | null) {
+  return [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    { to: '/invoices', label: 'Invoices', icon: FileText, show: hasPermission(session, 'invoicesView') },
+    { to: '/customers', label: 'Customers', icon: Users, show: true },
+    {
+      to: '/settings',
+      label: 'Settings',
+      icon: Settings,
+      show: hasPermission(session, 'settingsManage') || hasPermission(session, 'bankAccountsManage'),
+    },
+    { to: '/users', label: 'Users', icon: UserCog, show: isAdmin(session) },
+  ].filter((item) => item.show)
+}
 
 export function AppLayout() {
   const session = useAuth((s) => s.session)
   const clear = useAuth((s) => s.clear)
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const canCreateInvoices = hasPermission(session, 'invoicesCreate')
 
   const handleLogout = () => {
     clear()
@@ -48,14 +59,16 @@ export function AppLayout() {
           </button>
           <div className="hidden lg:block" />
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/invoice')}
-              className="btn-primary"
-              aria-label="New invoice"
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">New invoice</span>
-            </button>
+            {canCreateInvoices && (
+              <button
+                onClick={() => navigate('/invoice')}
+                className="btn-primary"
+                aria-label="New invoice"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">New invoice</span>
+              </button>
+            )}
             <div className="hidden h-8 w-px bg-border sm:block" />
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-xs font-semibold text-accent-fg">
@@ -112,6 +125,9 @@ function SidebarShell({
 }
 
 function SidebarBody({ onNavigate, onLogout }: { onNavigate?: () => void; onLogout: () => void }) {
+  const session = useAuth((s) => s.session)
+  const nav = getNav(session)
+
   return (
     <>
       <div className="px-5 py-5">

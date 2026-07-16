@@ -21,6 +21,7 @@ import { FullSpinner } from '@/components/ui/Spinner'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Modal } from '@/components/ui/Modal'
 import * as api from '@/lib/api'
+import { hasPermission, useAuth } from '@/lib/auth'
 import { useInvoices } from '@/lib/queries'
 import { cn, deriveStatus, toCommas } from '@/lib/utils'
 import type { Invoice } from '@/lib/types'
@@ -39,6 +40,10 @@ const STATUS_RANK: Record<string, number> = {
 
 export function InvoicesPage() {
   const navigate = useNavigate()
+  const session = useAuth((s) => s.session)
+  const canCreate = hasPermission(session, 'invoicesCreate')
+  const canEdit = hasPermission(session, 'invoicesEdit')
+  const canDelete = hasPermission(session, 'invoicesDelete')
   const qc = useQueryClient()
   const { data: invoices = [], isLoading } = useInvoices()
   const [filter, setFilter] = useState<Filter>('All')
@@ -98,18 +103,24 @@ export function InvoicesPage() {
           title="Invoices"
           description="Track invoices you've issued and their status"
           actions={
-            <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
-              New invoice
-            </Button>
+            canCreate ? (
+              <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
+                New invoice
+              </Button>
+            ) : undefined
           }
         />
         <EmptyState
           title="No invoices yet"
-          description="Create your first invoice to get paid faster."
+          description={
+            canCreate ? "Create your first invoice to get paid faster." : 'No invoices have been created yet.'
+          }
           action={
-            <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
-              New invoice
-            </Button>
+            canCreate ? (
+              <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
+                New invoice
+              </Button>
+            ) : undefined
           }
         />
       </>
@@ -128,9 +139,11 @@ export function InvoicesPage() {
         title="Invoices"
         description="Track invoices you've issued and their status"
         actions={
-          <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
-            New invoice
-          </Button>
+          canCreate ? (
+            <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
+              New invoice
+            </Button>
+          ) : undefined
         }
       />
 
@@ -187,8 +200,8 @@ export function InvoicesPage() {
                     key={inv._id}
                     inv={inv}
                     onOpen={() => navigate(`/invoice/${inv._id}`)}
-                    onEdit={() => navigate(`/edit/invoice/${inv._id}`)}
-                    onDelete={() => setConfirmId(inv._id ?? null)}
+                    onEdit={canEdit ? () => navigate(`/edit/invoice/${inv._id}`) : undefined}
+                    onDelete={canDelete ? () => setConfirmId(inv._id ?? null) : undefined}
                   />
                 ))}
               </tbody>
@@ -263,8 +276,8 @@ function Row({
 }: {
   inv: Invoice
   onOpen: () => void
-  onEdit: () => void
-  onDelete: () => void
+  onEdit?: () => void
+  onDelete?: () => void
 }) {
   const status = deriveStatus(inv)
   const due = inv.dueDate ? new Date(inv.dueDate) : null
@@ -305,20 +318,24 @@ function Row({
           >
             <Eye size={16} />
           </button>
-          <button
-            onClick={onEdit}
-            className="rounded-md p-1.5 text-muted hover:bg-accent-soft hover:text-ink"
-            aria-label="Edit"
-          >
-            <Pencil size={16} />
-          </button>
-          <button
-            onClick={onDelete}
-            className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"
-            aria-label="Delete"
-          >
-            <Trash2 size={16} />
-          </button>
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded-md p-1.5 text-muted hover:bg-accent-soft hover:text-ink"
+              aria-label="Edit"
+            >
+              <Pencil size={16} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"
+              aria-label="Delete"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </td>
     </tr>

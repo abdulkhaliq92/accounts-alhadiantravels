@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button'
 import { FullSpinner } from '@/components/ui/Spinner'
 import { CustomerForm } from '@/components/CustomerForm'
 import * as api from '@/lib/api'
-import { getUserId, useAuth } from '@/lib/auth'
+import { getUserId, hasPermission, useAuth } from '@/lib/auth'
 import { useClients, useInvoice, useInvoiceCount, useProfile } from '@/lib/queries'
 import { currencies, defaultCurrency } from '@/lib/currencies'
 import {
@@ -47,6 +47,7 @@ export function InvoiceEditorPage() {
   const qc = useQueryClient()
   const session = useAuth((s) => s.session)
   const userId = getUserId(session)
+  const canManageCustomers = hasPermission(session, 'customersManage')
   const isEdit = Boolean(id)
 
   const { data: existing, isLoading: loadingInvoice } = useInvoice(id)
@@ -62,6 +63,7 @@ export function InvoiceEditorPage() {
   const [rates, setRates] = useState('')
   const [dueDate, setDueDate] = useState(format(addDays(new Date(), 7), 'yyyy-MM-dd'))
   const [notes, setNotes] = useState('')
+  const [bankAccountId, setBankAccountId] = useState('')
   const [openClientPicker, setOpenClientPicker] = useState(false)
   const [openNewClient, setOpenNewClient] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -79,6 +81,7 @@ export function InvoiceEditorPage() {
         existing.dueDate ? format(new Date(existing.dueDate), 'yyyy-MM-dd') : dueDate,
       )
       setNotes(existing.notes ?? '')
+      setBankAccountId(existing.bankAccount?.sourceAccountId ?? '')
       setHydrated(true)
     }
   }, [isEdit, existing, hydrated, dueDate])
@@ -96,6 +99,14 @@ export function InvoiceEditorPage() {
       setNotes(profile.paymentDetails)
     }
   }, [isEdit, profile, notes])
+
+  // For new invoices: prefill the default bank account, if one is set
+  useEffect(() => {
+    if (!isEdit && !bankAccountId && profile?.bankAccounts?.length) {
+      const def = profile.bankAccounts.find((a) => a.isDefault)
+      if (def?._id) setBankAccountId(def._id)
+    }
+  }, [isEdit, profile, bankAccountId])
 
   const subTotal = useMemo(
     () => round2(items.reduce((acc, i) => acc + lineAmount(i), 0)),
@@ -157,6 +168,10 @@ export function InvoiceEditorPage() {
     const numStr = String(invoiceNumber).trim() || String(count + 1).padStart(3, '0')
     const numFormatted = numStr.length < 3 ? numStr.padStart(3, '0') : numStr
 
+    const selectedBankAccount = bankAccountId
+      ? profile?.bankAccounts?.find((a) => a._id === bankAccountId)
+      : undefined
+
     const payload: any = {
       items,
       rates,
@@ -174,6 +189,20 @@ export function InvoiceEditorPage() {
         phone: client.phone,
         address: client.address,
       },
+      bankAccount: selectedBankAccount
+        ? {
+            label: selectedBankAccount.label,
+            bankName: selectedBankAccount.bankName,
+            accountTitle: selectedBankAccount.accountTitle,
+            accountNumber: selectedBankAccount.accountNumber,
+            iban: selectedBankAccount.iban,
+            swiftCode: selectedBankAccount.swiftCode,
+            branchAddress: selectedBankAccount.branchAddress,
+            currency: selectedBankAccount.currency,
+            notes: selectedBankAccount.notes,
+            sourceAccountId: selectedBankAccount._id,
+          }
+        : null,
       invoiceNumber: numFormatted,
     }
 
@@ -301,13 +330,15 @@ export function InvoiceEditorPage() {
                         }}
                       />
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setOpenNewClient(true)}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-ink hover:underline"
-                    >
-                      <UserPlus size={12} /> New customer
-                    </button>
+                    {canManageCustomers && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenNewClient(true)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-ink hover:underline"
+                      >
+                        <UserPlus size={12} /> New customer
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -447,14 +478,36 @@ export function InvoiceEditorPage() {
             </div>
           </div>
 
-          <div className="card p-6">
-            <div className="label">Notes / Payment info</div>
-            <textarea
-              className="input min-h-[110px]"
-              placeholder="Provide additional details or terms of service"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
+          <div className="card space-y-4 p-6">
+            <div>
+              <div className="label">Bank account</div>
+              <select
+                className="input"
+                value={bankAccountId}
+                onChange={(e) => setBankAccountId(e.target.value)}
+              >
+                <option value="">No bank account on this invoice</option>
+                {(profile?.bankAccounts ?? []).map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+              {!profile?.bankAccounts?.length && (
+                <p className="mt-1.5 text-xs text-muted">
+                  Add a bank account in Settings to make it selectable here.
+                </p>
+              )}
+            </div>
+            <div>
+              <div className="label">Notes / Payment info</div>
+              <textarea
+                className="input min-h-[110px]"
+                placeholder="Provide additional details or terms of service"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 

@@ -35,17 +35,11 @@ export const getClient = async (req, res) => {
 
 
 export const getClients = async (req, res) => {
-    const { page } = req.query;
-    
     try {
-        const LIMIT = 8;
-        const startIndex = (Number(page) - 1) * LIMIT; // get the starting index of every page
-    
-        const total = await ClientModel.countDocuments({});
-        const clients = await ClientModel.find().sort({ _id: -1 }).limit(LIMIT).skip(startIndex);
+        const clients = await ClientModel.find().sort({ _id: -1 });
 
-        res.json({ data: clients, currentPage: Number(page), numberOfPages: Math.ceil(total / LIMIT)});
-    } catch (error) {    
+        res.json({ data: clients });
+    } catch (error) {
         res.status(404).json({ message: error.message });
     }
 }
@@ -84,18 +78,5 @@ export const deleteClient = async (req, res) => {
     await ClientModel.findByIdAndRemove(id)
 
     res.json({message: 'Client deleted successfully'})
-}
-
-
-export const getClientsByUser = async (req, res) => {
-    const { searchQuery } = req.query;
-
-    try {
-        const clients = await ClientModel.find({ userId: searchQuery });
-
-        res.json({ data: clients });
-    } catch (error) {    
-        res.status(404).json({ message: error.message });
-    }
 }
 

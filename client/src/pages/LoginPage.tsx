@@ -17,27 +17,12 @@ const signInSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
-const signUpSchema = z
-  .object({
-    firstName: z.string().min(1, 'Required'),
-    lastName: z.string().min(1, 'Required'),
-    email: z.string().email('Enter a valid email'),
-    password: z.string().min(6, 'At least 6 characters'),
-    confirmPassword: z.string(),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Passwords do not match',
-  })
-
 type SignIn = z.infer<typeof signInSchema>
-type SignUp = z.infer<typeof signUpSchema>
 
 export function LoginPage() {
   const session = useAuth((s) => s.session)
   const setSession = useAuth((s) => s.setSession)
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -46,7 +31,6 @@ export function LoginPage() {
   }, [session, navigate])
 
   const signIn = useForm<SignIn>({ resolver: zodResolver(signInSchema) })
-  const signUp = useForm<SignUp>({ resolver: zodResolver(signUpSchema) })
 
   const onSignIn = async (data: SignIn) => {
     setSubmitting(true)
@@ -57,37 +41,6 @@ export function LoginPage() {
       navigate('/dashboard', { replace: true })
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Sign in failed')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const onSignUp = async (data: SignUp) => {
-    setSubmitting(true)
-    try {
-      const res = await api.signUp(data)
-      setSession(res.data)
-      const userId = res.data.result?._id
-      if (userId) {
-        try {
-          await api.createProfile({
-            name: res.data.result?.name,
-            email: res.data.result?.email ?? '',
-            userId: [userId],
-            phoneNumber: '',
-            businessName: '',
-            contactAddress: '',
-            logo: '',
-            website: '',
-          })
-        } catch {
-          /* profile may already exist */
-        }
-      }
-      toast.success('Account created')
-      navigate('/dashboard', { replace: true })
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Sign up failed')
     } finally {
       setSubmitting(false)
     }
@@ -135,124 +88,55 @@ export function LoginPage() {
               <Logo />
             </div>
             <div className="mb-8">
-              <h1 className="text-2xl font-semibold tracking-tight text-ink">
-                {mode === 'signin' ? 'Welcome back' : 'Create account'}
-              </h1>
-              <p className="mt-1 text-sm text-muted">
-                {mode === 'signin'
-                  ? 'Sign in to manage invoices and clients.'
-                  : 'Get started in less than a minute.'}
-              </p>
+              <h1 className="text-2xl font-semibold tracking-tight text-ink">Welcome back</h1>
+              <p className="mt-1 text-sm text-muted">Sign in to manage invoices and clients.</p>
             </div>
 
-            {mode === 'signin' ? (
-              <form onSubmit={signIn.handleSubmit(onSignIn)} className="space-y-4">
-                <Input
-                  label="Email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@company.com"
-                  error={signIn.formState.errors.email?.message}
-                  {...signIn.register('email')}
-                />
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="label mb-0">Password</label>
-                    <Link to="/forgot" className="text-xs text-ink hover:underline">
-                      Forgot?
-                    </Link>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      placeholder="••••••••"
-                      className="input pr-10"
-                      {...signIn.register('password')}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((s) => !s)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted hover:bg-accent-soft"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  {signIn.formState.errors.password && (
-                    <p className="text-xs text-danger">{signIn.formState.errors.password.message}</p>
-                  )}
+            <form onSubmit={signIn.handleSubmit(onSignIn)} className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@company.com"
+                error={signIn.formState.errors.email?.message}
+                {...signIn.register('email')}
+              />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="label mb-0">Password</label>
+                  <Link to="/forgot" className="text-xs text-ink hover:underline">
+                    Forgot?
+                  </Link>
                 </div>
-                <Button type="submit" loading={submitting} className="w-full">
-                  Sign in
-                </Button>
-              </form>
-            ) : (
-              <form onSubmit={signUp.handleSubmit(onSignUp)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    label="First name"
-                    autoComplete="given-name"
-                    error={signUp.formState.errors.firstName?.message}
-                    {...signUp.register('firstName')}
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="input pr-10"
+                    {...signIn.register('password')}
                   />
-                  <Input
-                    label="Last name"
-                    autoComplete="family-name"
-                    error={signUp.formState.errors.lastName?.message}
-                    {...signUp.register('lastName')}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted hover:bg-accent-soft"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
-                <Input
-                  label="Email"
-                  type="email"
-                  autoComplete="email"
-                  error={signUp.formState.errors.email?.message}
-                  {...signUp.register('email')}
-                />
-                <Input
-                  label="Password"
-                  type="password"
-                  autoComplete="new-password"
-                  error={signUp.formState.errors.password?.message}
-                  {...signUp.register('password')}
-                />
-                <Input
-                  label="Confirm password"
-                  type="password"
-                  autoComplete="new-password"
-                  error={signUp.formState.errors.confirmPassword?.message}
-                  {...signUp.register('confirmPassword')}
-                />
-                <Button type="submit" loading={submitting} className="w-full">
-                  Create account
-                </Button>
-              </form>
-            )}
+                {signIn.formState.errors.password && (
+                  <p className="text-xs text-danger">{signIn.formState.errors.password.message}</p>
+                )}
+              </div>
+              <Button type="submit" loading={submitting} className="w-full">
+                Sign in
+              </Button>
+            </form>
 
-            <div className="mt-6 text-center text-sm text-muted">
-              {mode === 'signin' ? (
-                <>
-                  New here?{' '}
-                  <button
-                    onClick={() => setMode('signup')}
-                    className="font-medium text-ink hover:underline"
-                  >
-                    Create an account
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already have an account?{' '}
-                  <button
-                    onClick={() => setMode('signin')}
-                    className="font-medium text-ink hover:underline"
-                  >
-                    Sign in
-                  </button>
-                </>
-              )}
-            </div>
+            <p className="mt-6 text-center text-sm text-muted">
+              Need an account? Ask an admin to create one for you.
+            </p>
           </div>
         </div>
       </div>

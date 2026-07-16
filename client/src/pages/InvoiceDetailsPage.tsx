@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { PageHeader } from '@/components/PageHeader'
 import { BrandLogo } from '@/components/BrandLogo'
 import { PaymentModal } from '@/components/PaymentModal'
-import { getUserId, useAuth } from '@/lib/auth'
+import { hasPermission, useAuth } from '@/lib/auth'
 import { useInvoice, useProfile } from '@/lib/queries'
 import { downloadInvoicePdf } from '@/lib/pdf'
 import { deriveStatus, initials, lineAmount, splitMulti, toCommas } from '@/lib/utils'
@@ -19,7 +19,7 @@ export function InvoiceDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const session = useAuth((s) => s.session)
-  const userId = getUserId(session)
+  const canEdit = hasPermission(session, 'invoicesEdit')
   const { data: invoice, isLoading } = useInvoice(id)
   const { data: profile } = useProfile()
   const [open, setOpen] = useState(false)
@@ -37,7 +37,6 @@ export function InvoiceDetailsPage() {
 
   if (isLoading || !invoice) return <FullSpinner />
 
-  const isOwner = invoice.creator?.includes(userId ?? '')
   const balance = Math.max(0, Number(invoice.total) - totalReceived)
   const ratesNum = Number(invoice.rates) || 0
 
@@ -100,34 +99,36 @@ export function InvoiceDetailsPage() {
         }
       />
 
-      {isOwner && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          <Button onClick={downloadPdf} loading={downloading} leftIcon={<Download size={16} />}>
-            Download PDF
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={emailInvoice}
-            leftIcon={<Mail size={16} />}
-          >
-            Email customer
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => navigate(`/edit/invoice/${invoice._id}`)}
-            leftIcon={<Pencil size={16} />}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setOpen(true)}
-            leftIcon={<CreditCard size={16} />}
-          >
-            Record payment
-          </Button>
-        </div>
-      )}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Button onClick={downloadPdf} loading={downloading} leftIcon={<Download size={16} />}>
+          Download PDF
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={emailInvoice}
+          leftIcon={<Mail size={16} />}
+        >
+          Email customer
+        </Button>
+        {canEdit && (
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => navigate(`/edit/invoice/${invoice._id}`)}
+              leftIcon={<Pencil size={16} />}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setOpen(true)}
+              leftIcon={<CreditCard size={16} />}
+            >
+              Record payment
+            </Button>
+          </>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="card overflow-hidden xl:col-span-2" ref={invoiceCardRef}>
@@ -231,6 +232,29 @@ export function InvoiceDetailsPage() {
               </tbody>
             </table>
           </section>
+
+          {invoice.bankAccount && (
+            <section className="border-t border-border p-6">
+              <div className="label">Payment details</div>
+              <div className="text-sm text-ink">
+                <div className="font-medium">{invoice.bankAccount.label}</div>
+                {invoice.bankAccount.bankName && <div>{invoice.bankAccount.bankName}</div>}
+                {invoice.bankAccount.accountTitle && (
+                  <div className="text-muted">Account title: {invoice.bankAccount.accountTitle}</div>
+                )}
+                {invoice.bankAccount.accountNumber && (
+                  <div className="text-muted">Account #: {invoice.bankAccount.accountNumber}</div>
+                )}
+                {invoice.bankAccount.iban && <div className="text-muted">IBAN: {invoice.bankAccount.iban}</div>}
+                {invoice.bankAccount.swiftCode && (
+                  <div className="text-muted">SWIFT: {invoice.bankAccount.swiftCode}</div>
+                )}
+                {invoice.bankAccount.branchAddress && (
+                  <div className="text-muted">{invoice.bankAccount.branchAddress}</div>
+                )}
+              </div>
+            </section>
+          )}
 
           {invoice.notes && (
             <section className="border-t border-border p-6">

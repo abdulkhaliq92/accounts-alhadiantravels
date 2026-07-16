@@ -15,6 +15,18 @@ const InvoiceSchema = mongoose.Schema({
     creator: [String],
     totalAmountReceived: Number,
     client: { name: String, email: String, phone: String, address: String },
+    bankAccount: {
+        label: String,
+        bankName: String,
+        accountTitle: String,
+        accountNumber: String,
+        iban: String,
+        swiftCode: String,
+        branchAddress: String,
+        currency: String,
+        notes: String,
+        sourceAccountId: String,
+    },
     paymentRecords: [ {amountPaid: Number, datePaid: Date, paymentMethod: String, note: String, paidBy: String } ],
     createdAt: {
         type: Date,

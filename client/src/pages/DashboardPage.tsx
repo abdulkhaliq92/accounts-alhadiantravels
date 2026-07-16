@@ -26,12 +26,15 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { FullSpinner } from '@/components/ui/Spinner'
+import { hasPermission, useAuth } from '@/lib/auth'
 import { useInvoices } from '@/lib/queries'
 import { deriveStatus, getReceived, initials, toCommas } from '@/lib/utils'
 import type { Invoice, PaymentRecord } from '@/lib/types'
 
 export function DashboardPage() {
   const navigate = useNavigate()
+  const session = useAuth((s) => s.session)
+  const canCreate = hasPermission(session, 'invoicesCreate')
   const { data: invoices = [], isLoading } = useInvoices()
 
   const stats = useMemo(() => computeStats(invoices), [invoices])
@@ -46,11 +49,17 @@ export function DashboardPage() {
         <EmptyState
           icon={<FileText size={20} />}
           title="No invoices yet"
-          description="Create your first invoice to start tracking revenue and payments."
+          description={
+            canCreate
+              ? 'Create your first invoice to start tracking revenue and payments.'
+              : 'No invoices have been created yet.'
+          }
           action={
-            <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
-              New invoice
-            </Button>
+            canCreate ? (
+              <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
+                New invoice
+              </Button>
+            ) : undefined
           }
         />
       </>
@@ -63,9 +72,11 @@ export function DashboardPage() {
         title="Dashboard"
         description="Your invoicing snapshot at a glance"
         actions={
-          <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
-            New invoice
-          </Button>
+          canCreate ? (
+            <Button onClick={() => navigate('/invoice')} leftIcon={<Plus size={16} />}>
+              New invoice
+            </Button>
+          ) : undefined
         }
       />
 

@@ -16,11 +16,13 @@ const __dirname = dirname(__filename)
 import invoiceRoutes from './routes/invoices.js'
 import clientRoutes from './routes/clients.js'
 import userRoutes from './routes/userRoutes.js'
+import adminRoutes from './routes/admin.js'
 
 import profile from './routes/profile.js'
 import pdfTemplate from './documents/index.js'
 // import invoiceTemplate from './documents/invoice.js'
 import emailTemplate from './documents/email.js'
+import User from './models/userModel.js'
 
 const app = express()
 dotenv.config()
@@ -42,6 +44,7 @@ app.options('*', cors())
 app.use('/invoices', invoiceRoutes)
 app.use('/clients', clientRoutes)
 app.use('/users', userRoutes)
+app.use('/admin', adminRoutes)
 app.use('/profiles', profile)
 
 // NODEMAILER TRANSPORT FOR SENDING INVOICE VIA EMAIL
@@ -126,8 +129,28 @@ app.get('/', (req, res) => {
 
 const DB_URL = process.env.DB_URL
 const PORT = process.env.PORT || 5000
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL
+
+// Idempotently ensures the designated super admin account always has admin
+// access, so promoting/re-promoting never requires a manual DB migration.
+async function ensureSuperAdmin() {
+    if (!SUPER_ADMIN_EMAIL) return
+
+    try {
+        const result = await User.updateOne(
+            { email: SUPER_ADMIN_EMAIL },
+            { $set: { role: 'admin', active: true } },
+        )
+        if (result.matchedCount === 0) {
+            console.log(`SUPER_ADMIN_EMAIL is set to ${SUPER_ADMIN_EMAIL}, but no user with that email exists yet.`)
+        }
+    } catch (error) {
+        console.log('Failed to ensure super admin:', error.message)
+    }
+}
 
 mongoose.connect(DB_URL, { useNewUrlParser: true, useUnifiedTopology: true})
+    .then(() => ensureSuperAdmin())
     .then(() => app.listen(PORT, () => console.log(`Server running on port: ${PORT}`)))
     .catch((error) => console.log(error.message))
 

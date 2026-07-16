@@ -10,11 +10,14 @@ import { FullSpinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
 import { CustomerForm } from '@/components/CustomerForm'
 import * as api from '@/lib/api'
+import { hasPermission, useAuth } from '@/lib/auth'
 import { useClients } from '@/lib/queries'
 import { initials } from '@/lib/utils'
 import type { Client } from '@/lib/types'
 
 export function CustomersPage() {
+  const session = useAuth((s) => s.session)
+  const canManage = hasPermission(session, 'customersManage')
   const { data: clients = [], isLoading } = useClients()
   const qc = useQueryClient()
   const [editing, setEditing] = useState<Client | null>(null)
@@ -60,9 +63,11 @@ export function CustomersPage() {
         title="Customers"
         description="Your client directory"
         actions={
-          <Button onClick={startNew} leftIcon={<Plus size={16} />}>
-            Add customer
-          </Button>
+          canManage ? (
+            <Button onClick={startNew} leftIcon={<Plus size={16} />}>
+              Add customer
+            </Button>
+          ) : undefined
         }
       />
 
@@ -70,11 +75,15 @@ export function CustomersPage() {
         <EmptyState
           icon={<Users size={20} />}
           title="No customers yet"
-          description="Add your first customer to start invoicing them."
+          description={
+            canManage ? 'Add your first customer to start invoicing them.' : 'No customers have been added yet.'
+          }
           action={
-            <Button onClick={startNew} leftIcon={<Plus size={16} />}>
-              Add customer
-            </Button>
+            canManage ? (
+              <Button onClick={startNew} leftIcon={<Plus size={16} />}>
+                Add customer
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -108,22 +117,24 @@ export function CustomersPage() {
                     <div className="truncate font-medium text-ink">{c.name || '—'}</div>
                     <div className="truncate text-xs text-muted">{c.email || '—'}</div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                    <button
-                      onClick={() => startEdit(c)}
-                      className="rounded-md p-1.5 text-muted hover:bg-accent-soft hover:text-ink"
-                      aria-label="Edit"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmId(c._id ?? null)}
-                      className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"
-                      aria-label="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  {canManage && (
+                    <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                      <button
+                        onClick={() => startEdit(c)}
+                        className="rounded-md p-1.5 text-muted hover:bg-accent-soft hover:text-ink"
+                        aria-label="Edit"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmId(c._id ?? null)}
+                        className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"
+                        aria-label="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <dl className="space-y-1 border-t border-border pt-3 text-xs">
                   <div className="flex justify-between gap-2">

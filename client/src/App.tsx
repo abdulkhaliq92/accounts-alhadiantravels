@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { AppLayout } from './components/AppLayout'
 import { RequireAuth } from './components/RequireAuth'
+import { RequireAdmin } from './components/RequireAdmin'
 import { LoginPage } from './pages/LoginPage'
 import { ForgotPage } from './pages/ForgotPage'
 import { ResetPage } from './pages/ResetPage'
@@ -11,6 +12,7 @@ import { InvoiceEditorPage } from './pages/InvoiceEditorPage'
 import { InvoiceDetailsPage } from './pages/InvoiceDetailsPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { UsersPage } from './pages/UsersPage'
 
 export default function App() {
   return (
@@ -33,6 +35,14 @@ export default function App() {
         <Route path="/invoice/:id" element={<InvoiceDetailsPage />} />
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/users"
+          element={
+            <RequireAdmin>
+              <UsersPage />
+            </RequireAdmin>
+          }
+        />
       </Route>
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
